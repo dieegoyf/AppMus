@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Marcador de Mus</title>
+<meta name="description" content="Lleva las cuentas del mus: tantos, juegos y vacas.">
+<meta name="theme-color" content="#0b2e22">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mus">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+  :root{
+    --felt:#0e3b2c; --felt-2:#0b2e22; --felt-3:#082219;
+    --cream:#f4ecd8; --cream-dim:rgba(244,236,216,.62); --cream-faint:rgba(244,236,216,.14);
+    --oros:#e3b23c; --copas:#e05a47;
+    --line:rgba(244,236,216,.12);
+    --btn:rgba(244,236,216,.07); --btn-press:rgba(244,236,216,.18);
+    --radius:16px;
+    --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+    --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
+    font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; height:100%; background:var(--felt-3); color:var(--cream)}
+  body{
+    overscroll-behavior:none; -webkit-user-select:none; user-select:none; touch-action:manipulation;
+    background:
+      radial-gradient(120% 80% at 50% 30%, var(--felt) 0%, var(--felt-2) 60%, var(--felt-3) 100%);
+    background-attachment:fixed;
+  }
+  button{font:inherit; color:inherit; border:0; background:none; cursor:pointer; touch-action:manipulation}
+  input,select{font:inherit; -webkit-user-select:text; user-select:text}
+  .screen{display:none; min-height:100dvh; padding:calc(var(--sat) + 12px) calc(var(--sar) + 14px) calc(var(--sab) + 14px) calc(var(--sal) + 14px)}
+  .screen.active{display:flex; flex-direction:column}
+
+  /* ---------- Configuración ---------- */
+  #setup{gap:18px; max-width:560px; margin:0 auto}
+  .brand{display:flex; align-items:center; gap:12px; margin-top:6px}
+  .brand-mark{width:44px; height:44px; border-radius:12px; background:var(--felt-3); display:grid; place-items:center; font-weight:800; font-size:24px; border:1px solid var(--line)}
+  .brand h1{margin:0; font-size:26px; letter-spacing:-.01em}
+  .brand p{margin:2px 0 0; color:var(--cream-dim); font-size:14px}
+  .card{background:rgba(0,0,0,.18); border:1px solid var(--line); border-radius:var(--radius); padding:14px}
+  .card h2{margin:0 0 12px; font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--cream-dim); font-weight:600}
+  .pareja{display:grid; gap:8px; padding:10px 0}
+  .pareja + .pareja{border-top:1px solid var(--line)}
+  .pareja-head{display:flex; align-items:center; gap:10px}
+  .dot{width:12px; height:12px; border-radius:50%; flex:none}
+  .dot.t0{background:var(--oros)} .dot.t1{background:var(--copas)}
+  .field{width:100%; background:rgba(0,0,0,.25); border:1px solid var(--line); color:var(--cream); border-radius:12px; padding:11px 12px; font-size:16px; outline:none}
+  .field:focus{border-color:var(--cream-dim)}
+  .field.big{font-weight:700; font-size:18px}
+  .jugadores{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0}
+  .row + .row{border-top:1px solid var(--line)}
+  .row-label{display:flex; flex-direction:column}
+  .row-label b{font-weight:600; font-size:16px}
+  .row-label small{color:var(--cream-dim); font-size:13px; margin-top:2px}
+  .seg{display:flex; background:rgba(0,0,0,.3); border-radius:12px; padding:3px; border:1px solid var(--line)}
+  .seg button{padding:8px 16px; border-radius:9px; font-weight:700; color:var(--cream-dim)}
+  .seg button.on{background:var(--cream); color:var(--felt-3)}
+  .stepper{display:flex; align-items:center; gap:4px; background:rgba(0,0,0,.3); border-radius:12px; padding:3px; border:1px solid var(--line)}
+  .stepper button{width:38px; height:36px; border-radius:9px; font-size:20px; font-weight:700}
+  .stepper button:active{background:var(--btn-press)}
+  .stepper span{min-width:26px; text-align:center; font-weight:800; font-size:18px; font-variant-numeric:tabular-nums}
+  .primary{background:var(--cream); color:var(--felt-3); font-weight:800; font-size:18px; border-radius:14px; padding:16px; width:100%}
+  .primary:active{transform:scale(.98)}
+  .ghost{border:1px solid var(--line); border-radius:14px; padding:14px; width:100%; font-weight:600}
+  .hint{color:var(--cream-dim); font-size:13px; line-height:1.4; margin:0}
+  .spacer{flex:1}
+
+  /* ---------- Marcador ---------- */
+  #board{padding-bottom:calc(var(--sab) + 10px); gap:10px; height:100dvh; min-height:0}
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:40px}
+  .reglas{font-size:13px; color:var(--cream-dim); display:flex; gap:6px; flex-wrap:wrap}
+  .reglas span{background:rgba(0,0,0,.22); border:1px solid var(--line); padding:4px 9px; border-radius:999px; white-space:nowrap}
+  .icon-btn{width:40px; height:40px; border-radius:12px; display:grid; place-items:center; border:1px solid var(--line); background:rgba(0,0,0,.18)}
+  .icon-btn:active{background:var(--btn-press)}
+  .teams{flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .team{--c:var(--oros); display:flex; flex-direction:column; min-height:0; border-radius:20px; padding:12px 10px 10px;
+        background:linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.26)); border:1px solid var(--line); position:relative; overflow:hidden}
+  .team[data-t="1"]{--c:var(--copas)}
+  .team::before{content:""; position:absolute; inset:0 0 auto 0; height:4px; background:var(--c); opacity:.9}
+  .team-name{font-weight:800; font-size:17px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:2px 4px}
+  .marks{display:grid; gap:4px; margin:8px 0 2px}
+  .mark{display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--cream-dim)}
+  .pips{display:flex; gap:4px}
+  .pip{width:10px; height:10px; border-radius:50%; border:1.5px solid var(--cream-faint)}
+  .pip.on{background:var(--c); border-color:var(--c)}
+  .pip.vaca{width:14px; border-radius:4px}
+  .score-wrap{flex:1; min-height:110px; display:flex; flex-direction:column; align-items:center; justify-content:center}
+  .score{font-size:clamp(64px, 22vw, 120px); font-weight:800; line-height:.95; font-variant-numeric:tabular-nums; letter-spacing:-.03em; transition:transform .15s ease}
+  .score.bump{animation:bump .28s ease}
+  @keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .estado{font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--cream-dim); margin-top:4px}
+  .estado.buenas{color:var(--c)}
+  .piedras{display:flex; flex-wrap:wrap; justify-content:center; gap:5px; min-height:26px; margin:8px 0 10px; max-width:150px}
+  .amarraco{width:22px; height:12px; border-radius:6px; background:var(--c)}
+  .piedra{width:9px; height:9px; border-radius:50%; background:var(--cream); opacity:.85; align-self:center}
+  .btns{display:grid; grid-template-columns:1fr 1fr; gap:7px}
+  .pbtn{background:var(--btn); border:1px solid var(--line); border-radius:14px; height:58px; font-size:22px; font-weight:800; font-variant-numeric:tabular-nums}
+  .pbtn:active{background:var(--btn-press); transform:scale(.96)}
+  .pbtn.five{background:color-mix(in srgb, var(--c) 22%, transparent); border-color:color-mix(in srgb, var(--c) 55%, transparent)}
+  .pbtn.minus{grid-column:1 / -1; height:40px; font-size:16px; font-weight:700; color:var(--cream-dim)}
+  .manobar{display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(0,0,0,.2); border:1px solid var(--line); border-radius:14px; padding:8px 8px 8px 14px}
+  .manobar .who{font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .manobar .who small{color:var(--cream-dim); text-transform:uppercase; letter-spacing:.08em; font-size:11px; margin-right:6px}
+  .manobar .who .dot{display:inline-block; width:9px; height:9px; margin-right:6px; vertical-align:middle}
+  .manobar button{padding:8px 12px; border-radius:10px; border:1px solid var(--line); font-weight:600; font-size:14px; white-space:nowrap}
+  .manobar button:active{background:var(--btn-press)}
+  .footer{display:grid; grid-template-columns:1fr 1.25fr; gap:10px}
+  .footer button{height:56px; border-radius:16px; font-weight:800; font-size:17px; display:flex; align-items:center; justify-content:center; gap:8px}
+  .undo{border:1px solid var(--line); background:rgba(0,0,0,.2)}
+  .undo:disabled{opacity:.35}
+  .undo:active:not(:disabled){background:var(--btn-press)}
+  .ordago{background:linear-gradient(135deg, var(--oros), var(--copas)); color:#2a0f08; letter-spacing:.02em}
+  .ordago:active{transform:scale(.98)}
+
+  /* ---------- Diálogos ---------- */
+  .overlay{position:fixed; inset:0; background:rgba(3,14,10,.72); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+           display:none; align-items:flex-end; justify-content:center; z-index:20; padding:12px calc(var(--sar) + 12px) calc(var(--sab) + 12px) calc(var(--sal) + 12px)}
+  .overlay.open{display:flex}
+  .sheet{width:100%; max-width:480px; background:#123f30; border:1px solid var(--line); border-radius:22px; padding:18px; display:grid; gap:12px;
+         animation:up .22s ease; max-height:calc(100dvh - 40px); overflow:auto}
+  @keyframes up{from{transform:translateY(24px); opacity:0}to{transform:none; opacity:1}}
+  .sheet h3{margin:0; font-size:20px}
+  .sheet p{margin:0; color:var(--cream-dim); line-height:1.45}
+  .choice{display:flex; align-items:center; gap:12px; padding:16px; border-radius:16px; border:1px solid var(--line); background:rgba(0,0,0,.18); font-weight:800; font-size:18px; text-align:left; width:100%}
+  .choice:active{background:var(--btn-press)}
+  .choice .dot{width:14px; height:14px}
+  .danger{color:#ffb4a8}
+
+  /* ---------- Celebración ---------- */
+  .celebra{position:fixed; inset:0; z-index:30; display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px;
+           padding:calc(var(--sat) + 24px) 24px calc(var(--sab) + 24px)}
+  .celebra.open{display:flex; animation:fade .25s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .celebra .kicker{text-transform:uppercase; letter-spacing:.18em; font-size:14px; font-weight:700; opacity:.85}
+  .celebra .titulo{font-size:clamp(44px, 13vw, 76px); font-weight:900; line-height:1; letter-spacing:-.02em}
+  .celebra .quien{font-size:24px; font-weight:800}
+  .celebra .resumen{margin-top:10px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap}
+  .celebra .resumen span{background:rgba(0,0,0,.18); border-radius:999px; padding:6px 12px; font-weight:700; font-size:15px}
+  .celebra .acciones{display:grid; gap:10px; width:100%; max-width:360px; margin-top:24px}
+  .celebra .acciones button{height:54px; border-radius:16px; font-weight:800; font-size:17px}
+  .celebra .go{background:#1a120c; color:var(--cream)}
+  .celebra .sec{background:rgba(0,0,0,.14); color:inherit}
+
+  .toast{position:fixed; left:50%; bottom:calc(var(--sab) + 84px); transform:translateX(-50%) translateY(20px); opacity:0; pointer-events:none;
+         background:var(--cream); color:var(--felt-3); padding:10px 16px; border-radius:999px; font-weight:700; font-size:14px; transition:.2s; z-index:40; white-space:nowrap}
+  .toast.show{opacity:1; transform:translateX(-50%)}
+
+  .install{display:none; gap:10px; align-items:flex-start; background:rgba(227,178,60,.12); border:1px solid rgba(227,178,60,.4); border-radius:14px; padding:12px; font-size:14px; line-height:1.4}
+  .install.show{display:flex}
+  .install button{margin-left:auto; padding:0 4px; font-size:18px; color:var(--cream-dim)}
+
+  @media (min-width:700px){
+    #board{max-width:760px; margin:0 auto; width:100%}
+    .pbtn{height:66px}
+  }
+  @media (max-height:640px){
+    .pbtn{height:48px; font-size:19px} .pbtn.minus{height:34px}
+    .score{font-size:clamp(52px,18vw,80px)} .marks{margin-top:4px}
+    .footer button{height:48px}
+  }
+</style>
+</head>
+<body>
+
+<!-- =============== CONFIGURACIÓN =============== -->
+<section id="setup" class="screen">
+  <div class="brand">
+    <div class="brand-mark">M</div>
+    <div>
+      <h1>Marcador de Mus</h1>
+      <p>Configura la partida y a jugar</p>
+    </div>
+  </div>
+
+  <div id="installHint" class="install">
+    <div>📲 <b>Instálala en el móvil:</b> <span id="installText"></span></div>
+    <button id="installClose" aria-label="Cerrar">×</button>
+  </div>
+
+  <div class="card">
+    <h2>Parejas</h2>
+    <div class="pareja">
+      <div class="pareja-head"><span class="dot t0"></span><input class="field big" id="p0" maxlength="20" placeholder="Nosotros"></div>
+      <div class="jugadores">
+        <input class="field" id="j0a" maxlength="16" placeholder="Jugador 1 (opcional)">
+        <input class="field" id="j0b" maxlength="16" placeholder="Jugador 3 (opcional)">
+      </div>
+    </div>
+    <div class="pareja">
+      <div class="pareja-head"><span class="dot t1"></span><input class="field big" id="p1" maxlength="20" placeholder="Ellos"></div>
+      <div class="jugadores">
+        <input class="field" id="j1a" maxlength="16" placeholder="Jugador 2 (opcional)">
+        <input class="field" id="j1b" maxlength="16" placeholder="Jugador 4 (opcional)">
+      </div>
+    </div>
+    <p class="hint">Si pones los nombres de los jugadores, la app te dirá quién es mano en cada momento. El orden es el de la mesa: 1, 2, 3 y 4.</p>
+  </div>
+
+  <div class="card">
+    <h2>Reglas de la partida</h2>
+    <div class="row">
+      <div class="row-label"><b>Tantos por juego</b><small>A cuántos se juega cada juego</small></div>
+      <div class="seg" id="segPuntos"><button data-v="30">30</button><button data-v="40">40</button></div>
+    </div>
+    <div class="row">
+      <div class="row-label"><b>Juegos para ganar la vaca</b><small id="hJuegos"></small></div>
+      <div class="stepper" data-k="juegosVaca"><button data-d="-1" aria-label="Menos">−</button><span></span><button data-d="1" aria-label="Más">+</button></div>
+    </div>
+    <div class="row">
+      <div class="row-label"><b>Vacas para ganar la partida</b><small id="hVacas"></small></div>
+      <div class="stepper" data-k="vacasPartida"><button data-d="-1" aria-label="Menos">−</button><span></span><button data-d="1" aria-label="Más">+</button></div>
+    </div>
+    <div class="row" id="rowMano">
+      <div class="row-label"><b>Empieza de mano</b><small>Pasa con «Siguiente mano» y al acabar cada juego</small></div>
+      <select class="field" id="manoInicial" style="width:auto; max-width:50%"></select>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <button class="ghost" id="btnContinuar" style="display:none">Volver a la partida en curso</button>
+  <button class="primary" id="btnEmpezar">Empezar partida</button>
+</section>
+
+<!-- =============== MARCADOR =============== -->
+<section id="board" class="screen">
+  <div class="topbar">
+    <div class="reglas" id="reglas"></div>
+    <button class="icon-btn" id="btnMenu" aria-label="Menú">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+    </button>
+  </div>
+
+  <div class="teams">
+    <div class="team" data-t="0"></div>
+    <div class="team" data-t="1"></div>
+  </div>
+
+  <div class="manobar" id="manobar">
+    <div class="who" id="manoWho"></div>
+    <button id="btnMano">Siguiente mano ›</button>
+  </div>
+
+  <div class="footer">
+    <button class="undo" id="btnUndo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      Deshacer
+    </button>
+    <button class="ordago" id="btnOrdago">¡ÓRDAGO!</button>
+  </div>
+</section>
+
+<!-- Diálogo genérico -->
+<div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+
+<!-- Celebración de juego / vaca / partida -->
+<div class="celebra" id="celebra"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ================== Estado ==================
+  const STORE_KEY = 'mus-marcador-v1';
+  const MAX_UNDO = 400;
+
+  const defaultConfig = () => ({
+    puntos: 40,
+    juegosVaca: 2,
+    vacasPartida: 2,
+    parejas: [
+      { nombre: 'Nosotros', jugadores: ['', ''] },
+      { nombre: 'Ellos', jugadores: ['', ''] }
+    ],
+    manoInicial: 0
+  });
+
+  let state = { config: defaultConfig(), game: null, undo: [] };
+
+  const store = {
+    load() {
+      try { const raw = localStorage.getItem(STORE_KEY); return raw ? JSON.parse(raw) : null; }
+      catch (e) { return null; }
+    },
+    save() {
+      try {
+        if (state.undo.length > MAX_UNDO) state.undo = state.undo.slice(-MAX_UNDO);
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      } catch (e) { /* sin almacenamiento: la partida vive solo mientras la página esté abierta */ }
+    }
+  };
+
+  const nuevoJuego = (cfg) => ({
+    tantos: [0, 0], juegos: [0, 0], vacas: [0, 0],
+    mano: cfg.manoInicial || 0,
+    terminada: null,
+    inicio: Date.now()
+  });
+
+  // ================== Utilidades ==================
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const nombrePareja = (t) => state.config.parejas[t].nombre || (t === 0 ? 'Nosotros' : 'Ellos');
+  const vibrar = (ms = 12) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+  const alMejorDe = (n) => n === 1 ? 'a un solo juego' : `al mejor de ${2 * n - 1}`;
+
+  // Asientos en orden de mesa: J1 (pareja 0), J2 (pareja 1), J3 (pareja 0), J4 (pareja 1)
+  function asientos(cfg = state.config) {
+    const p = cfg.parejas;
+    return [
+      { nombre: p[0].jugadores[0], t: 0, n: 1 },
+      { nombre: p[1].jugadores[0], t: 1, n: 2 },
+      { nombre: p[0].jugadores[1], t: 0, n: 3 },
+      { nombre: p[1].jugadores[1], t: 1, n: 4 }
+    ];
+  }
+  const hayJugadores = (cfg = state.config) => asientos(cfg).some((a) => a.nombre.trim());
+  const nombreAsiento = (a) => a.nombre.trim() || `Jugador ${a.n}`;
+
+  let toastTimer;
+  function toast(msg) {
+    const el = $('#toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
+  }
+
+  function mostrar(id) {
+    document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
+  }
+
+  // ================== Configuración ==================
+  let draft = null;
+
+  function abrirSetup() {
+    draft = JSON.parse(JSON.stringify(state.config));
+    const p = draft.parejas;
+    $('#p0').value = p[0].nombre === 'Nosotros' ? '' : p[0].nombre;
+    $('#p1').value = p[1].nombre === 'Ellos' ? '' : p[1].nombre;
+    $('#j0a').value = p[0].jugadores[0]; $('#j0b').value = p[0].jugadores[1];
+    $('#j1a').value = p[1].jugadores[0]; $('#j1b').value = p[1].jugadores[1];
+    $('#btnContinuar').style.display = (state.game && !state.game.terminada) ? 'block' : 'none';
+    pintarSetup();
+    mostrar('setup');
+    pintarInstall();
+  }
+
+  function leerFormulario() {
+    const v = (id) => $(id).value.trim();
+    draft.parejas[0].nombre = v('#p0') || 'Nosotros';
+    draft.parejas[1].nombre = v('#p1') || 'Ellos';
+    draft.parejas[0].jugadores = [v('#j0a'), v('#j0b')];
+    draft.parejas[1].jugadores = [v('#j1a'), v('#j1b')];
+  }
+
+  function pintarSetup() {
+    document.querySelectorAll('#segPuntos button').forEach((b) => b.classList.toggle('on', +b.dataset.v === draft.puntos));
+    document.querySelectorAll('.stepper').forEach((s) => { $('span', s).textContent = draft[s.dataset.k]; });
+    $('#hJuegos').textContent = `Vaca ${alMejorDe(draft.juegosVaca)}`;
+    $('#hVacas').textContent = draft.vacasPartida === 1 ? 'Partida a una sola vaca' : `Partida ${alMejorDe(draft.vacasPartida)} vacas`;
+    // Selector de mano
+    leerFormulario();
+    const sel = $('#manoInicial');
+    const muestra = hayJugadores(draft);
+    $('#rowMano').style.display = muestra ? 'flex' : 'none';
+    if (muestra) {
+      sel.innerHTML = asientos(draft).map((a, i) => `<option value="${i}">${esc(nombreAsiento(a))}</option>`).join('');
+      sel.value = String(draft.manoInicial || 0);
+    }
+  }
+
+  $('#segPuntos').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    draft.puntos = +b.dataset.v; pintarSetup();
+  });
+  document.querySelectorAll('.stepper').forEach((s) => s.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const k = s.dataset.k;
+    draft[k] = Math.min(5, Math.max(1, draft[k] + (+b.dataset.d)));
+    pintarSetup();
+  }));
+  ['#j0a', '#j0b', '#j1a', '#j1b'].forEach((id) => $(id).addEventListener('input', pintarSetup));
+  $('#manoInicial').addEventListener('change', (e) => { draft.manoInicial = +e.target.value; });
+
+  $('#btnEmpezar').addEventListener('click', () => {
+    leerFormulario();
+    if (!hayJugadores(draft)) draft.manoInicial = 0;
+    const empezar = () => {
+      state.config = draft;
+      state.game = nuevoJuego(draft);
+      state.undo = [];
+      store.save();
+      abrirBoard();
+      pedirPantallaEncendida();
+    };
+    if (state.game && !state.game.terminada && haEmpezado(state.game)) {
+      dialogo(`<h3>¿Empezar una partida nueva?</h3><p>Se perderá la partida en curso.</p>
+        <button class="primary" data-a="ok">Sí, empezar de cero</button>
+        <button class="ghost" data-a="no">Cancelar</button>`, { ok: empezar });
+    } else empezar();
+  });
+  $('#btnContinuar').addEventListener('click', () => { abrirBoard(); pedirPantallaEncendida(); });
+
+  const haEmpezado = (g) => g.tantos.some(Boolean) || g.juegos.some(Boolean) || g.vacas.some(Boolean);
+
+  // ================== Marcador ==================
+  function abrirBoard() { mostrar('board'); pintarBoard(); }
+
+  function pips(n, total, cls = '') {
+    let h = '';
+    for (let i = 0; i < total; i++) h += `<span class="pip ${cls} ${i < n ? 'on' : ''}"></span>`;
+    return h;
+  }
+
+  function piedras(tantos) {
+    const a = Math.floor(tantos / 5), p = tantos % 5;
+    return '<span class="amarraco"></span>'.repeat(a) + '<span class="piedra"></span>'.repeat(p);
+  }
+
+  function pintarBoard() {
+    const { config: c, game: g } = state;
+    if (!g) return;
+    $('#reglas').innerHTML =
+      `<span>A ${c.puntos}</span><span>Vaca a ${c.juegosVaca} ${c.juegosVaca === 1 ? 'juego' : 'juegos'}</span>` +
+      (c.vacasPartida > 1 ? `<span>Partida a ${c.vacasPartida} vacas</span>` : '');
+
+    document.querySelectorAll('.team').forEach((el) => {
+      const t = +el.dataset.t;
+      const mitad = c.puntos / 2;
+      const buenas = g.tantos[t] > mitad;
+      el.innerHTML = `
+        <div class="team-name">${esc(nombrePareja(t))}</div>
+        <div class="marks">
+          ${c.vacasPartida > 1 ? `<div class="mark">Vacas <span class="pips">${pips(g.vacas[t], c.vacasPartida, 'vaca')}</span></div>` : ''}
+          <div class="mark">Juegos <span class="pips">${pips(g.juegos[t], c.juegosVaca)}</span></div>
+        </div>
+        <div class="score-wrap">
+          <div class="score" data-score="${t}">${g.tantos[t]}</div>
+          <div class="estado ${buenas ? 'buenas' : ''}">${buenas ? 'En buenas' : 'En malas'}</div>
+          <div class="piedras" aria-hidden="true">${piedras(g.tantos[t])}</div>
+        </div>
+        <div class="btns">
+          <button class="pbtn" data-add="1">+1</button>
+          <button class="pbtn" data-add="2">+2</button>
+          <button class="pbtn" data-add="3">+3</button>
+          <button class="pbtn five" data-add="5">+5</button>
+          <button class="pbtn minus" data-add="-1">−1</button>
+        </div>`;
+    });
+
+    const conMano = hayJugadores();
+    $('#manobar').style.display = conMano ? 'flex' : 'none';
+    if (conMano) {
+      const a = asientos()[g.mano];
+      $('#manoWho').innerHTML = `<small>Mano</small><span class="dot t${a.t}"></span><b>${esc(nombreAsiento(a))}</b>`;
+    }
+    $('#btnUndo').disabled = state.undo.length === 0;
+  }
+
+  function snapshot() { state.undo.push(JSON.stringify(state.game)); }
+
+  function sumar(t, n) {
+    const g = state.game;
+    if (!g || g.terminada) return;
+    if (n < 0 && g.tantos[t] === 0) return;
+    snapshot();
+    g.tantos[t] = Math.max(0, g.tantos[t] + n);
+    vibrar();
+    if (g.tantos[t] >= state.config.puntos) { ganarJuego(t, 'tantos'); return; }
+    store.save();
+    pintarBoard();
+    const s = document.querySelector(`[data-score="${t}"]`);
+    if (s) { s.classList.remove('bump'); void s.offsetWidth; s.classList.add('bump'); }
+  }
+
+  function ganarJuego(t, motivo) {
+    const { config: c, game: g } = state;
+    g.juegos[t]++;
+    g.tantos = [0, 0];
+    g.mano = (g.mano + 1) % 4;   // el siguiente juego lo empieza el siguiente jugador
+    let tipo = 'juego';
+    if (g.juegos[t] >= c.juegosVaca) {
+      g.vacas[t]++;
+      g.juegos = [0, 0];
+      tipo = 'vaca';
+      if (g.vacas[t] >= c.vacasPartida) { g.terminada = { ganador: t, fin: Date.now() }; tipo = 'partida'; }
+    }
+    store.save();
+    pintarBoard();
+    celebrar(tipo, t, motivo);
+    vibrar([30, 60, 30]);
+  }
+
+  function deshacer() {
+    if (!state.undo.length) return;
+    state.game = JSON.parse(state.undo.pop());
+    store.save();
+    cerrarCelebracion();
+    if ($('#board').classList.contains('active')) pintarBoard(); else abrirBoard();
+    toast('Deshecho');
+  }
+
+  // Botones de puntos (delegación)
+  $('.teams').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-add]'); if (!b) return;
+    const t = +b.closest('.team').dataset.t;
+    sumar(t, +b.dataset.add);
+  });
+  $('#btnUndo').addEventListener('click', deshacer);
+
+  $('#btnMano').addEventListener('click', () => {
+    snapshot();
+    state.game.mano = (state.game.mano + 1) % 4;
+    store.save(); pintarBoard(); vibrar();
+  });
+
+  $('#btnOrdago').addEventListener('click', () => {
+    dialogo(`<h3>¡Órdago!</h3><p>¿Quién gana el órdago? Se lleva el juego entero.</p>
+      <button class="choice" data-a="t0"><span class="dot t0"></span>${esc(nombrePareja(0))}</button>
+      <button class="choice" data-a="t1"><span class="dot t1"></span>${esc(nombrePareja(1))}</button>
+      <button class="ghost" data-a="no">Cancelar</button>`, {
+      t0: () => { snapshot(); ganarJuego(0, 'ordago'); },
+      t1: () => { snapshot(); ganarJuego(1, 'ordago'); }
+    });
+  });
+
+  $('#btnMenu').addEventListener('click', () => {
+    dialogo(`<h3>Partida</h3>
+      <button class="choice" data-a="nombres">✏️&nbsp; Cambiar nombres</button>
+      <button class="choice" data-a="reiniciar">↺&nbsp; Reiniciar este juego a 0</button>
+      <button class="choice" data-a="nueva">🃏&nbsp; Nueva partida</button>
+      <button class="choice" data-a="instalar">📲&nbsp; Instalar en el móvil</button>
+      <button class="ghost" data-a="no">Cerrar</button>`, {
+      nombres: editarNombres,
+      reiniciar: () => {
+        if (!state.game.tantos.some(Boolean)) return toast('El juego ya está a 0');
+        snapshot(); state.game.tantos = [0, 0]; store.save(); pintarBoard(); toast('Juego a 0');
+      },
+      nueva: abrirSetup,
+      instalar: () => dialogo(`<h3>Instalar en el móvil</h3><p>${instruccionesInstalar()}</p><button class="primary" data-a="no">Entendido</button>`)
+    });
+  });
+
+  function editarNombres() {
+    const p = state.config.parejas;
+    const campo = (id, val, ph) => `<input class="field" id="${id}" maxlength="20" value="${esc(val)}" placeholder="${ph}">`;
+    dialogo(`<h3>Nombres</h3>
+      <p>Los cambios no afectan al marcador.</p>
+      <div style="display:grid; gap:8px">
+        <div class="pareja-head"><span class="dot t0"></span>${campo('e_p0', p[0].nombre, 'Nosotros')}</div>
+        <div class="jugadores">${campo('e_j0a', p[0].jugadores[0], 'Jugador 1')}${campo('e_j0b', p[0].jugadores[1], 'Jugador 3')}</div>
+        <div class="pareja-head" style="margin-top:6px"><span class="dot t1"></span>${campo('e_p1', p[1].nombre, 'Ellos')}</div>
+        <div class="jugadores">${campo('e_j1a', p[1].jugadores[0], 'Jugador 2')}${campo('e_j1b', p[1].jugadores[1], 'Jugador 4')}</div>
+      </div>
+      <button class="primary" data-a="ok">Guardar</button>
+      <button class="ghost" data-a="no">Cancelar</button>`, {
+      ok: () => {
+        const v = (id) => $('#' + id).value.trim();
+        p[0].nombre = v('e_p0') || 'Nosotros'; p[1].nombre = v('e_p1') || 'Ellos';
+        p[0].jugadores = [v('e_j0a'), v('e_j0b')]; p[1].jugadores = [v('e_j1a'), v('e_j1b')];
+        store.save(); pintarBoard();
+      }
+    });
+  }
+
+  // ================== Diálogos ==================
+  function dialogo(html, acciones = {}) {
+    const ov = $('#overlay'), sh = $('#sheet');
+    sh.innerHTML = html;
+    ov.classList.add('open');
+    const cerrar = () => { ov.classList.remove('open'); ov.onclick = null; };
+    ov.onclick = (e) => {
+      if (e.target === ov) return cerrar();
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      const fn = acciones[b.dataset.a];
+      cerrar();
+      if (fn) fn();
+    };
+  }
+
+  function celebrar(tipo, t, motivo) {
+    const { config: c, game: g } = state;
+    const el = $('#celebra');
+    const color = t === 0 ? 'var(--oros)' : 'var(--copas)';
+    const ink = t === 0 ? '#2a1d04' : '#2a0b06';
+    el.style.background = color; el.style.color = ink;
+    const kicker = motivo === 'ordago' ? 'Órdago ganado' : { juego: 'Fin del juego', vaca: 'Fin de la vaca', partida: 'Fin de la partida' }[tipo];
+    const titulo = { juego: 'Juego', vaca: '¡Vaca!', partida: '¡Partida!' }[tipo];
+    const resumen = tipo === 'partida'
+      ? (c.vacasPartida > 1 ? `<span>Vacas ${g.vacas[0]} – ${g.vacas[1]}</span>` : '')
+      : `${c.vacasPartida > 1 ? `<span>Vacas ${g.vacas[0]} – ${g.vacas[1]}</span>` : ''}<span>Juegos ${g.juegos[0]} – ${g.juegos[1]}</span>`;
+    const acciones = tipo === 'partida'
+      ? `<button class="go" data-c="revancha">Revancha</button>
+         <button class="sec" data-c="nueva">Nueva partida</button>
+         <button class="sec" data-c="undo">Deshacer</button>`
+      : `<button class="go" data-c="seguir">Seguir jugando</button>
+         <button class="sec" data-c="undo">Deshacer</button>`;
+    el.innerHTML = `
+      <div class="kicker">${kicker}</div>
+      <div class="titulo">${titulo}</div>
+      <div class="quien">para ${esc(nombrePareja(t))}</div>
+      <div class="resumen">${resumen}</div>
+      <div class="acciones">${acciones}</div>`;
+    el.classList.add('open');
+  }
+  function cerrarCelebracion() { $('#celebra').classList.remove('open'); }
+
+  $('#celebra').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-c]'); if (!b) return;
+    const a = b.dataset.c;
+    if (a === 'undo') return deshacer();
+    cerrarCelebracion();
+    if (a === 'revancha') {
+      state.game = nuevoJuego(state.config); state.undo = []; store.save(); abrirBoard();
+    } else if (a === 'nueva') {
+      abrirSetup();
+    }
+  });
+
+  // ================== Pantalla encendida ==================
+  let wakeLock = null;
+  async function pedirPantallaEncendida() {
+    try {
+      if ('wakeLock' in navigator && document.visibilityState === 'visible' && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch (e) { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && $('#board').classList.contains('active')) pedirPantallaEncendida();
+  });
+
+  // ================== Instalación ==================
+  const esStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const enIframe = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+  const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  function instruccionesInstalar() {
+    if (esIOS) return 'Ábrela en <b>Safari</b>, pulsa el botón <b>Compartir</b> (el cuadrado con la flecha) y elige <b>«Añadir a pantalla de inicio»</b>.';
+    return 'En <b>Chrome</b>, abre el menú <b>⋮</b> y elige <b>«Añadir a pantalla de inicio»</b> o <b>«Instalar aplicación»</b>.';
+  }
+  function pintarInstall() {
+    let cerrado = false;
+    try { cerrado = localStorage.getItem('mus-install-hint') === 'off'; } catch (e) {}
+    const mostrarHint = !esStandalone() && !enIframe && !cerrado;
+    $('#installHint').classList.toggle('show', mostrarHint);
+    $('#installText').innerHTML = instruccionesInstalar();
+  }
+  $('#installClose').addEventListener('click', () => {
+    try { localStorage.setItem('mus-install-hint', 'off'); } catch (e) {}
+    $('#installHint').classList.remove('show');
+  });
+
+  if ('serviceWorker' in navigator && !enIframe) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+
+  // ================== Arranque ==================
+  const guardado = store.load();
+  if (guardado && guardado.config) {
+    state = { config: { ...defaultConfig(), ...guardado.config }, game: guardado.game || null, undo: guardado.undo || [] };
+  }
+  if (state.game && !state.game.terminada) abrirBoard();
+  else abrirSetup();
+})();
+</script>
+</body>
+</html>
